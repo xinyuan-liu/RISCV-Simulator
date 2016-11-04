@@ -186,23 +186,33 @@ int main(int argc, char ** argv)
 						
 					case 0b001: //LH
 						if(verbose) printf("lh\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
-						x[instr.rd()] = int64_t(int16_t(mem.ReadHalfword(instr.imm_I()+x[instr.rs1()])));
+						x[instr.rd()] = int64_t(int16_t(mem.ReadHalfword(instr.imm_I() + x[instr.rs1()])));
 						break;
 						
 					case 0b010: //LW
 						if(verbose) printf("lw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
-                        x[instr.rd()] = int64_t(int32_t(mem.ReadWord(instr.imm_I()+x[instr.rs1()])));
+                        x[instr.rd()] = int64_t(int32_t(mem.ReadWord(instr.imm_I() + x[instr.rs1()])));
 						break;
-						
-					case 0b011: //LBU
+					
+					case 0b011: //LD
+						if(verbose) printf("ld\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
+						x[instr.rd()] = mem.ReadDoubleword(instr.imm_I() + x[instr.rs1()]);
+						break;
+					
+					case 0b100: //LBU
 						if(verbose) printf("lbu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
-						x[instr.rd()] = uint64_t(mem.ReadByte(instr.imm_I()+x[instr.rs1()]));
+						x[instr.rd()] = uint64_t(uint8_t(mem.ReadByte(instr.imm_I() + x[instr.rs1()])));
 						break;
 							
-					case 0b100: //LHU
+					case 0b101: //LHU
 						if(verbose) printf("lhu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
-						x[instr.rd()] = uint64_t(mem.ReadHalfword(instr.imm_I()+x[instr.rs1()]));
-						break;		
+						x[instr.rd()] = uint64_t(uint16_t(mem.ReadHalfword(instr.imm_I() + x[instr.rs1()])));
+						break;	
+					
+					case 0b110: //LWU
+						if(verbose) printf("lwu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
+						x[instr.rd()] = uint64_t(uint32_t(mem.ReadWord(instr.imm_I() + x[instr.rs1()])));
+						break;
 				}
                 break;
                 
@@ -213,13 +223,20 @@ int main(int argc, char ** argv)
 						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteByte(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
+						
 					case 0b001: //SH
 						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteHalfword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
+						
 					case 0b010: //SW
 						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteWord(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
+						break;
+						
+					case 0b011: //SD
+						if(verbose) printf("sd\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
+						mem.WriteDoubleword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
 				}
                 break;

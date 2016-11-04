@@ -175,7 +175,21 @@ int main(int argc, char ** argv)
 			    if(verbose) printf("lui\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                     x[instr.rd()] = instr.imm_U();
 				break;
-				
+                
+            case 0b1101111: //JAL
+                if(verbose) printf("jal\t%s,0x%lx", RegName[instr.rd()], instr.imm_UJ(true));
+                x[instr.rd()] = PC + 4;
+                PC_next=instr.imm_UJ()+PC;
+                break;
+                
+            case 0b1100111: //JALR
+                if(instr.func3()==0b000)
+                {
+                    if(verbose) printf("jalr\t%s,%s,0x%lx", RegName[instr.rd()],RegName[instr.rs1()], instr.imm_I(true));
+                    x[instr.rd()] = PC + 4;
+                    PC_next=instr.imm_I()+PC+x[instr.rs1()];
+                }
+                break;
 			case 0b0000011: 
 				switch(instr.func3())
 				{

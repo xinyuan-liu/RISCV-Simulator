@@ -130,9 +130,12 @@ class instruction {
     uint64_t imm_UJ(bool SignExt=true)
     {
         if(SignExt)
-            return (int64_t)(int)((((int)code)>>20&(~1)) & (~0b1111111110000000000) | (((code>>20)&1)<<11) | (code & 0b11111111000000000000));
-        return (code>>20&(~1)) & (~0b1111111110000000000) | (((code>>20)&1)<<11) | (code & 0b11111111000000000000);
+            return (int64_t)(int)((((int)code)>>20&(~1)) & (~0b11111111100000000000) | (((code>>20)&1)<<11) | (code & 0b11111111000000000000));
+        return (code>>20&(~1)) & (~0b11111111100000000000) | (((code>>20)&1)<<11) | (code & 0b11111111000000000000);
     }
+    
+    uint32_t func6() {return (code & 0b11111100000000000000000000000000)>>26;}
+    uint32_t shamt6() {return (code & 0b11111100000000000000000000)>>20;}
 
 };
     
@@ -161,11 +164,11 @@ int main(int argc, char ** argv)
     while(true)
     {
         instruction instr=mem.ReadWord(PC);
-        if(verbose)printf("%08x:\t", instr.code);
-        //cout<<dec<<(long)instr.imm_I()<<' '<<(long)instr.imm_SB()<<' '<<hex<<(long)instr.imm_UJ()<<endl;
+        PC_next=PC+4;
+        if(verbose)printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
         switch(instr.opcode())
         {
-        	//64??กงก้?กงก่??1?กง???false 
+            
             case 0b0010111: //AUIPC
                 if(verbose) printf("auipc\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                 x[instr.rd()] = instr.imm_U() + PC;
@@ -368,11 +371,7 @@ int main(int argc, char ** argv)
 						x[instr.rd()] = x[instr.rs1()] + (int64_t)instr.imm_I();
 						break;
 						
-					case 0b001: //SLLI
-						if(verbose) printf("slli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-						x[instr.rd()] = x[instr.rs1()] << instr.shamt();
-						break;
-						
+					
 					case 0b010: //SLTI
 						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
 						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I()]) x[instr.rd()] = 1;
@@ -389,18 +388,23 @@ int main(int argc, char ** argv)
 						if(verbose) printf("xori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
 						x[instr.rd()] = x[instr.rs1()] ^ instr.imm_I(false);
 						break;
-						
+                    
+                    case 0b001: //SLLI
+                        if(verbose) printf("slli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
+                        x[instr.rd()] = x[instr.rs1()] << instr.shamt6();
+                        break;
+                        
 					case 0b101:
-						switch(instr.func7())
+						switch(instr.func6())
 						{
-							case 0b0000000: //SRLI
-								if(verbose) printf("srli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = x[instr.rs1()] >> instr.shamt();
+							case 0b000000: //SRLI
+								if(verbose) printf("srli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
+								x[instr.rd()] = x[instr.rs1()] >> instr.shamt6();
 								break;
 								
-							case 0b0100000: //SRAI
-								if(verbose) printf("srai\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt();
+							case 0b010000: //SRAI
+								if(verbose) printf("srai\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
+								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt6();
 								break;
 						}
 						break;
@@ -489,7 +493,8 @@ int main(int argc, char ** argv)
                 
             //default: Error("Invalid instruction\n");
         }
-        PC += 4;
-        cin.get();
+        PC =PC_next;
+        cout<<endl;
+        //cin.get();
     }
 }

@@ -138,7 +138,7 @@ class instruction {
     
 RegisterFile x;
 VirtualMemory mem;
-uint64_t PC;
+uint64_t PC,PC_next;
 uint64_t & sp=x[2];
 int main(int argc, char ** argv)
 {
@@ -287,36 +287,36 @@ int main(int argc, char ** argv)
 			case 0b1110011: //SCALL
 				
 			case 0b1100011:
-				seitch(instr.func3())
+				switch(instr.func3())
 				{
 					case 0b000: //BEQ
-						if(verbose) printf("beq\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if(x[instr.rs1()] == x[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("beq\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if(x[instr.rs1()] == x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 						
 					case 0b001: //BNE
-						if(verbose) printf("bne\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if(x[instr.rs1()] != RegName[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("bne\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if(x[instr.rs1()] != x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 						
 					case 0b100: //BLT
-						if(verbose) printf("blt\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if((int)x[instr.rs1()] < (int)x[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("blt\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if((int64_t)x[instr.rs1()] < (int64_t)x[instr.rs2()]) PC_next= PC + instr.imm_SB();
 						break;
 						
 					case 0b101: //BGE
-						if(verbose) printf("bge\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if((int)x[instr.rs1()] >= (int)x[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("bge\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if((int64_t)x[instr.rs1()] >= (int64_t)x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 						
 					case 0b110: //BLTU
-						if(verbose) printf("bltu\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if(x[instr.rs1()] < x[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("bltu\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if(x[instr.rs1()] < x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 						
 					case 0b111: //BGEU
-						if(verbose) printf("bgeu\t%s,%s,%s", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
-						if(x[instr.rs1()] >= x[instr.rs2()]) PC = PC + instr.imm_SB();
+						if(verbose) printf("bgeu\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
+						if(x[instr.rs1()] >= x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 				}
 				

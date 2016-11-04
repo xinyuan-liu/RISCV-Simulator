@@ -175,6 +175,7 @@ int main(int argc, char ** argv)
 			    if(verbose) printf("lui\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                     x[instr.rd()] = instr.imm_U();
 				break;
+				
 			case 0b0000011: 
 				switch(instr.func3())
 				{
@@ -204,6 +205,7 @@ int main(int argc, char ** argv)
 						break;		
 				}
                 break;
+                
 			case 0b0100011:
 				switch(instr.func3())
 				{
@@ -221,6 +223,7 @@ int main(int argc, char ** argv)
 						break;
 				}
                 break;
+                
 			case 0b0110011:
 				switch(instr.func3())
 				{
@@ -381,6 +384,7 @@ int main(int argc, char ** argv)
 						x[instr.rd()] = x[instr.rs1()] & instr.imm_I(false);
 						break;
 				}
+				break;
 				
 			case 0b0011011:
 				switch(instr.func3())
@@ -428,8 +432,28 @@ int main(int argc, char ** argv)
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] - (int)x[instr.rs2()]);
 								break;
 						}
+						break;
+					
+					case 0b001: //SLLW
+						if(verbose) printf("sllw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+						x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] << (int)x[instr.rs2()]);
+						break;
+						
+					case 0b101:
+						switch(instr.func7())
+						{
+							case 0b0000000: //SRLW
+								if(verbose) printf("srlw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] >> (int)x[instr.rs2()]);
+								break;
+								
+							case 0b0100000: //SRAW
+								if(verbose) printf("sraw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> (int)x[instr.rs2()]);
+								break;
+						}
+						break;
 				}
-                
 				break;
                 
             //default: Error("Invalid instruction\n");

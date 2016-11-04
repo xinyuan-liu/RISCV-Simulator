@@ -330,8 +330,8 @@ int main(int argc, char ** argv)
 				switch(instr.func3())
 				{
 					case 0b000: //ADDI
-						if(verbose) printf("addi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] + (int64_t)instr.imm_I(false);
+						if(verbose) printf("addi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
+						x[instr.rd()] = x[instr.rs1()] + (int64_t)instr.imm_I();
 						break;
 						
 					case 0b001: //SLLI
@@ -340,8 +340,8 @@ int main(int argc, char ** argv)
 						break;
 						
 					case 0b010: //SLTI
-						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I(false)]) x[instr.rd()] = 1;
+						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
+						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 						
@@ -392,8 +392,42 @@ int main(int argc, char ** argv)
 						
 					case 0b001: //SLLIW
 						if(verbose) printf("slliw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)instr.imm_I(false));
+						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] << instr.shamt());
 						break;
+						
+					case 0b101: //SRLIW
+						switch(instr.func7())
+						{
+							case 0b0000000: //SRLIW
+								if(verbose) printf("srliw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] >> instr.shamt());
+								break;
+								
+							case 0b0100000: //SRAIW
+								if(verbose) printf("sraiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> instr.shamt());
+								break;
+						}
+						break;
+				}
+				break;
+				
+			case 0b0111011:
+				switch(instr.func3())
+				{
+					case 0b000:
+						switch(instr.func7())
+						{
+							case 0b0000000: //ADDW
+								if(verbose) printf("addw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)x[instr.rs2()]);
+								break;
+								
+							case 0b0100000: //SUBW
+								if(verbose) printf("subw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] - (int)x[instr.rs2()]);
+								break;
+						}
 				}
                 
 				break;

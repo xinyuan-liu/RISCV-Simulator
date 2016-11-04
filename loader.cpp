@@ -355,7 +355,7 @@ int main(int argc, char ** argv)
 						break;
 						
 					case 0b001: //SLLI
-						if(verbose) printf("slli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+						if(verbose) printf("slli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 						x[instr.rd()] = x[instr.rs1()] << instr.shamt();
 						break;
 						
@@ -380,12 +380,12 @@ int main(int argc, char ** argv)
 						switch(instr.func7())
 						{
 							case 0b0000000: //SRLI
-								if(verbose) printf("srli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								if(verbose) printf("srli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = x[instr.rs1()] >> instr.shamt();
 								break;
 								
 							case 0b0100000: //SRAI
-								if(verbose) printf("srai\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								if(verbose) printf("srai\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt();
 								break;
 						}
@@ -407,12 +407,12 @@ int main(int argc, char ** argv)
 				switch(instr.func3())
 				{
 					case 0b000: //ADDIW
-						if(verbose) printf("addiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.imm_I(false));
-						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)instr.imm_I(false));
+						if(verbose) printf("addiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
+						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)instr.imm_I());
 						break;
 						
 					case 0b001: //SLLIW
-						if(verbose) printf("slliw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+						if(verbose) printf("slliw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] << instr.shamt());
 						break;
 						
@@ -420,12 +420,12 @@ int main(int argc, char ** argv)
 						switch(instr.func7())
 						{
 							case 0b0000000: //SRLIW
-								if(verbose) printf("srliw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] >> instr.shamt());
+								if(verbose) printf("srliw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] >> instr.shamt());
 								break;
 								
 							case 0b0100000: //SRAIW
-								if(verbose) printf("sraiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								if(verbose) printf("sraiw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> instr.shamt());
 								break;
 						}
@@ -452,20 +452,20 @@ int main(int argc, char ** argv)
 						break;
 					
 					case 0b001: //SLLW
-						if(verbose) printf("sllw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-						x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] << (int)x[instr.rs2()]);
+						if(verbose) printf("sllw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+						x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] << (int)x[instr.rs2()]);
 						break;
 						
 					case 0b101:
 						switch(instr.func7())
 						{
 							case 0b0000000: //SRLW
-								if(verbose) printf("srlw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = (int64_t)((unsigned int)x[instr.rs1()] >> (int)x[instr.rs2()]);
+								if(verbose) printf("srlw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] >> (int)x[instr.rs2()]);
 								break;
 								
 							case 0b0100000: //SRAW
-								if(verbose) printf("sraw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+								if(verbose) printf("sraw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> (int)x[instr.rs2()]);
 								break;
 						}

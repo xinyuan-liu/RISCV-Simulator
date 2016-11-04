@@ -270,7 +270,7 @@ int main(int argc, char ** argv)
 								
 							case 0b0100000: //SRA
 								if(verbose) printf("sra\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = (int)x[instr.rs1()] >> x[instr.rs2()];
+								x[instr.rd()] = (int64_t)x[instr.rs1()] >> x[instr.rs2()];
 								break;
 						}
                         break;
@@ -341,19 +341,19 @@ int main(int argc, char ** argv)
 						
 					case 0b010: //SLTI
 						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						if(x[instr.rs1() < (int64_t)instr.imm_I(false)]) x[instr.rd()] = 1;
+						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I(false)]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 						
 					case 0b011: //SLTIU
 						if(verbose) printf("sltiu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-						if(x[instr.rs1() < (int64_t)instr.imm_I()]) x[instr.rd()] = 1;
+						if(x[instr.rs1() < instr.imm_I()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 						
 					case 0b100: //XORI
 						if(verbose) printf("xori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] ^ (int64_t)instr.imm_I(false);
+						x[instr.rd()] = x[instr.rs1()] ^ instr.imm_I(false);
 						break;
 						
 					case 0b101:
@@ -361,23 +361,31 @@ int main(int argc, char ** argv)
 						{
 							case 0b0000000: //SRLI
 								if(verbose) printf("srli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = (int)x[instr.rs1()] >> instr.imm_I(false);
-								break;	
+								x[instr.rd()] = x[instr.rs1()] >> instr.shamt();
+								break;
+								
+							case 0b0100000: //SRAI
+								if(verbose) printf("srai\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt();
+								break;
 						}
 						break;
 						
 					case 0b110: //ORI
 						if(verbose) printf("ori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] | (int64_t)instr.imm_I(false);
+						x[instr.rd()] = x[instr.rs1()] | instr.imm_I(false);
 						break;
 						
 					case 0b111: //ANDI
 						if(verbose) printf("andi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] & (int64_t)instr.imm_I(false);
+						x[instr.rd()] = x[instr.rs1()] & instr.imm_I(false);
 						break;
-						
 				}
-                break;
+				
+			case 0b0011011:
+				
+                
+				break;
                 
             //default: Error("Invalid instruction\n");
         }

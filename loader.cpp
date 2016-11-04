@@ -138,7 +138,7 @@ class instruction {
     
 RegisterFile x;
 VirtualMemory mem;
-uint64_t PC,PC_next;
+uint64_t PC, PC_next;
 uint64_t & sp=x[2];
 int main(int argc, char ** argv)
 {
@@ -265,12 +265,12 @@ int main(int argc, char ** argv)
 						{
 							case 0b0000000: //SRL
 								if(verbose) printf("srl\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = (unsigned int)x[instr.rs1()] >> x[instr.rs2()];
+								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
 								break;
 								
 							case 0b0100000: //SRA
 								if(verbose) printf("sra\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
+								x[instr.rd()] = (int)x[instr.rs1()] >> x[instr.rs2()];
 								break;
 						}
                         break;
@@ -335,8 +335,8 @@ int main(int argc, char ** argv)
 						break;
 						
 					case 0b001: //SLLI
-						if(verbose) printf("slli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.shamt());
-						x[instr.rd()] = x[instr.rs1()] << (int64_t)instr.shamt();
+						if(verbose) printf("slli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+						x[instr.rd()] = x[instr.rs1()] << instr.shamt();
 						break;
 						
 					case 0b010: //SLTI
@@ -360,8 +360,8 @@ int main(int argc, char ** argv)
 						switch(instr.func7())
 						{
 							case 0b0000000: //SRLI
-								if(verbose) printf("srli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-								x[instr.rd()] = x[instr.rs1()] << (int64_t)instr.imm_I(false);
+								if(verbose) printf("srli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
+								x[instr.rd()] = (int)x[instr.rs1()] >> instr.imm_I(false);
 								break;	
 						}
 						break;

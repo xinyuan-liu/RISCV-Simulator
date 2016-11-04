@@ -236,7 +236,8 @@ int main(int argc, char ** argv)
 								if(verbose) printf("sub\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = x[instr.rs1()] - x[instr.rs2()];
 								break;
-						}	
+						}
+                        break;
 					case 0b001: //SLL
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] << x[instr.rs2()];
@@ -272,6 +273,7 @@ int main(int argc, char ** argv)
 								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
 								break;
 						}
+                        break;
 						
 					case 0b110: //OR
 						if(verbose) printf("or\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
@@ -283,8 +285,11 @@ int main(int argc, char ** argv)
 						x[instr.rd()] = x[instr.rs1()] & x[instr.rs2()];
 						break;
 				}
+                break;
 			
 			case 0b1110011: //SCALL
+                
+                break;
 				
 			case 0b1100011:
 				switch(instr.func3())
@@ -319,12 +324,14 @@ int main(int argc, char ** argv)
 						if(x[instr.rs1()] >= x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
 				}
+                break;
 				
 			case 0b0010011:
 				switch(instr.func3())
 				{
 					
 				}
+                break;
             //default: Error("Invalid instruction\n");
         }
         PC+=4;

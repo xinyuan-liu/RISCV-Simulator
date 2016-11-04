@@ -138,7 +138,7 @@ class instruction {
     
 RegisterFile x;
 VirtualMemory mem;
-uint64_t PC, PC_next;
+uint64_t PC,PC_next;
 uint64_t & sp=x[2];
 int main(int argc, char ** argv)
 {
@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
         //cout<<dec<<(long)instr.imm_I()<<' '<<(long)instr.imm_SB()<<' '<<hex<<(long)instr.imm_UJ()<<endl;
         switch(instr.opcode())
         {
-        	//64??¡§¡é?¡§¡è??1?¡§???false 
+        	//64??¨¢?¨¤??1?¨®??false 
             case 0b0010111: //AUIPC
                 if(verbose) printf("auipc\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                 x[instr.rd()] = instr.imm_U() + PC;
@@ -175,6 +175,23 @@ int main(int argc, char ** argv)
 			    if(verbose) printf("lui\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                     x[instr.rd()] = instr.imm_U();
 				break;
+                
+            case 0b1101111: //JAL
+                if(verbose) printf("jal\t%s,0x%lx", RegName[instr.rd()], instr.imm_UJ(true));
+                x[instr.rd()] = PC + 4;
+                PC_next=instr.imm_UJ()+PC;
+                break;
+                
+            case 0b1100111: //JALR
+                if(instr.func3()==0b000)
+                {
+                    if(verbose) printf("jalr\t%s,%s,0x%lx", RegName[instr.rd()],RegName[instr.rs1()], instr.imm_I(true));
+                    x[instr.rd()] = PC + 4;
+                    PC_next=instr.imm_I()+PC+x[instr.rs1()];
+                }
+                
+                break;
+                
 			case 0b0000011: 
 				switch(instr.func3())
 				{
@@ -265,12 +282,12 @@ int main(int argc, char ** argv)
 						{
 							case 0b0000000: //SRL
 								if(verbose) printf("srl\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
+								x[instr.rd()] = (unsigned int)x[instr.rs1()] >> x[instr.rs2()];
 								break;
 								
 							case 0b0100000: //SRA
 								if(verbose) printf("sra\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-								x[instr.rd()] = (int64_t)x[instr.rs1()] >> x[instr.rs2()];
+								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
 								break;
 						}
                         break;
@@ -329,67 +346,12 @@ int main(int argc, char ** argv)
 			case 0b0010011:
 				switch(instr.func3())
 				{
-					case 0b000: //ADDI
-						if(verbose) printf("addi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] + (int64_t)instr.imm_I(false);
-						break;
-						
-					case 0b001: //SLLI
-						if(verbose) printf("slli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-						x[instr.rd()] = x[instr.rs1()] << instr.shamt();
-						break;
-						
-					case 0b010: //SLTI
-						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I(false)]) x[instr.rd()] = 1;
-						else x[instr.rd()] = 0;
-						break;
-						
-					case 0b011: //SLTIU
-						if(verbose) printf("sltiu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-						if(x[instr.rs1() < instr.imm_I()]) x[instr.rd()] = 1;
-						else x[instr.rd()] = 0;
-						break;
-						
-					case 0b100: //XORI
-						if(verbose) printf("xori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] ^ instr.imm_I(false);
-						break;
-						
-					case 0b101:
-						switch(instr.func7())
-						{
-							case 0b0000000: //SRLI
-								if(verbose) printf("srli\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = x[instr.rs1()] >> instr.shamt();
-								break;
-								
-							case 0b0100000: //SRAI
-								if(verbose) printf("srai\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
-								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt();
-								break;
-						}
-						break;
-						
-					case 0b110: //ORI
-						if(verbose) printf("ori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] | instr.imm_I(false);
-						break;
-						
-					case 0b111: //ANDI
-						if(verbose) printf("andi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
-						x[instr.rd()] = x[instr.rs1()] & instr.imm_I(false);
-						break;
+					
 				}
-				
-			case 0b0011011:
-				
-                
-				break;
-                
+                break;
             //default: Error("Invalid instruction\n");
         }
-        PC += 4;
+        PC+=4;
         cin.get();
     }
 }

@@ -5,9 +5,16 @@
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 using namespace std;
 
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
+
+
+void ecall();
+uint64_t PC, PC_next;
+char ErrorMSG[256];
 
 struct MemoryBlock 
 {
@@ -24,13 +31,14 @@ struct MemoryBlock
 
 void Error(const char * msg)
 {
-    printf("%s", msg);
-    exit(1);
+    printf("%lx:\t%s", PC, msg);
+    //exit(1);
 }
 
 class VirtualMemory
 {
     vector<MemoryBlock*>blocks;
+    public:
     char * getPaddr(uint64_t Vaddr)
     {
         int l=blocks.size();
@@ -41,9 +49,10 @@ class VirtualMemory
                 return blocks[i]->Content + (Vaddr-blocks[i]->StartAddr);
             }
         }
-        Error("Memory error");
+        printf(ErrorMSG,"Memory Error: %lx\n",Vaddr);
+        Error(ErrorMSG);
     }
-    public:
+    
     
     void load(char * Content,uint64_t MemSize,uint64_t StartAddr)
     {
@@ -138,25 +147,40 @@ class instruction {
     uint32_t shamt6() {return (code & 0b11111100000000000000000000)>>20;}
 
 };
-    
+
+
 RegisterFile x;
 VirtualMemory mem;
-uint64_t PC, PC_next;
+
 uint64_t & sp=x[2];
+uint64_t & gp=x[3];
+uint64_t & a0=x[10];
+uint64_t & a1=x[11];
+uint64_t & a2=x[12];
+uint64_t & a3=x[13];
+uint64_t & a4=x[14];
+uint64_t & a5=x[15];
+uint64_t & a6=x[16];
+uint64_t & a7=x[17];
+
+bool verbose=false;
+
 int main(int argc, char ** argv)
 {
-    bool verbose=true;
+    
     ifstream fin (argv[1], ios::binary);
     Elf64_Ehdr Elfhdr;
     fin.read((char *)(&Elfhdr), sizeof(Elf64_Ehdr));
     Elf64_Phdr Prohdr;
     fin.read((char *)(&Prohdr), sizeof(Elf64_Phdr));
     //cout<<hex<<Prohdr.p_offset<<endl<<Prohdr.p_vaddr<<endl<<Prohdr.p_memsz<<endl;
-    char * Content=new char [Prohdr.p_memsz];
-    memset(Content, 0, Prohdr.p_memsz); 
+    uint64_t segsize=0x2000000+Prohdr.p_memsz;
+    char * Content=new char [segsize];
+    memset(Content, 0, segsize);
     fin.seekg(Prohdr.p_offset);
     fin.read(Content, Prohdr.p_filesz);
-    mem.load(Content, Prohdr.p_memsz, Prohdr.p_vaddr);
+    mem.load(Content, segsize, Prohdr.p_vaddr);
+    
     sp=0xfefffb50;
     mem.load(new char [0x2000000], 0x2000000, 0xfe000000);
     PC=Elfhdr.e_entry;
@@ -190,8 +214,9 @@ int main(int argc, char ** argv)
                 {
                     if(verbose) printf("jalr\t%s,%s,0x%lx", RegName[instr.rd()],RegName[instr.rs1()], instr.imm_I(true));
                     x[instr.rd()] = PC + 4;
-                    PC_next=instr.imm_I()+PC+x[instr.rs1()];
+                    PC_next=instr.imm_I()+x[instr.rs1()];
                 }
+                else Error("Invalid instruction\n");
                 break;
 			case 0b0000011: 
 				switch(instr.func3())
@@ -230,6 +255,8 @@ int main(int argc, char ** argv)
 						if(verbose) printf("lwu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = uint64_t(uint32_t(mem.ReadWord(instr.imm_I() + x[instr.rs1()])));
 						break;
+                        
+                    default: Error("Invalid instruction\n");
 				}
                 break;
                 
@@ -255,6 +282,8 @@ int main(int argc, char ** argv)
 						if(verbose) printf("sd\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteDoubleword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
+                    
+                    default: Error("Invalid instruction\n");
 				}
                 break;
                 
@@ -273,6 +302,7 @@ int main(int argc, char ** argv)
 								if(verbose) printf("sub\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = x[instr.rs1()] - x[instr.rs2()];
 								break;
+                            default: Error("Invalid instruction\n");
 						}
                         break;
 					case 0b001: //SLL
@@ -309,6 +339,8 @@ int main(int argc, char ** argv)
 								if(verbose) printf("sra\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)x[instr.rs1()] >> x[instr.rs2()];
 								break;
+                                
+                            default: Error("Invalid instruction\n");
 						}
                         break;
 						
@@ -321,11 +353,14 @@ int main(int argc, char ** argv)
 						if(verbose) printf("and\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] & x[instr.rs2()];
 						break;
+                    
+                    default: Error("Invalid instruction\n");
 				}
                 break;
 			
 			case 0b1110011: //SCALL
-                
+                if(verbose)printf("ecall");
+                ecall();
                 break;
 				
 			case 0b1100011:
@@ -360,6 +395,8 @@ int main(int argc, char ** argv)
 						if(verbose) printf("bgeu\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if(x[instr.rs1()] >= x[instr.rs2()]) PC_next = PC + instr.imm_SB();
 						break;
+                        
+                    default: Error("Invalid instruction\n");
 				}
                 break;
 				
@@ -406,6 +443,8 @@ int main(int argc, char ** argv)
 								if(verbose) printf("srai\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
 								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt6();
 								break;
+                                
+                            default: Error("Invalid instruction\n");
 						}
 						break;
 						
@@ -418,6 +457,8 @@ int main(int argc, char ** argv)
 						if(verbose) printf("andi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
 						x[instr.rd()] = x[instr.rs1()] & instr.imm_I(false);
 						break;
+                        
+                    default: Error("Invalid instruction\n");
 				}
 				break;
 				
@@ -446,8 +487,12 @@ int main(int argc, char ** argv)
 								if(verbose) printf("sraiw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> instr.shamt());
 								break;
+                                
+                            default: Error("Invalid instruction\n");
 						}
 						break;
+                        
+                    default: Error("Invalid instruction\n");
 				}
 				break;
 				
@@ -466,6 +511,8 @@ int main(int argc, char ** argv)
 								if(verbose) printf("subw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] - (int)x[instr.rs2()]);
 								break;
+                                
+                            default: Error("Invalid instruction\n");
 						}
 						break;
 					
@@ -486,15 +533,46 @@ int main(int argc, char ** argv)
 								if(verbose) printf("sraw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> (int)x[instr.rs2()]);
 								break;
+                                
+                            default: Error("Invalid instruction\n");
 						}
 						break;
+                        
+                    default: Error("Invalid instruction\n");
 				}
 				break;
                 
-            //default: Error("Invalid instruction\n");
+            default: Error("Invalid instruction\n");
         }
         PC =PC_next;
-        cout<<endl;
+        if(verbose)cout<<endl;
         //cin.get();
+    }
+}
+
+
+void ecall()
+{
+    switch (a7) {
+        case 57:
+            a0=close(a0);
+            break;
+        case 64:
+            a0=write(a0,(const void*)mem.getPaddr(a1),a2);
+            break;
+        case 80:
+            a0=fstat(a0,(struct stat *)mem.getPaddr(a1));
+            break;
+        case 93:
+            if(verbose)printf("\n");
+            exit(0);
+            break;
+        case 214:
+            //printf(" %lx" , mem.ReadDoubleword(gp-1960) );
+            break;
+        default:
+            sprintf(ErrorMSG,"Undefined Ecall: %ld\n",a7);
+            Error(ErrorMSG);
+            break;
     }
 }

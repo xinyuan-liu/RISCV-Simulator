@@ -2,6 +2,5 @@
 using namespace std;
 int main()
 {
-    unsigned i=-1;
-    cout<<((int)i >> 2);
+cout<<"Hello World!"<<endl;
 }

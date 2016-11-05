@@ -9,7 +9,7 @@
 #include <unistd.h>
 using namespace std;
 
-bool verbose=true;
+bool verbose=false;
 
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
 const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0","fs1","fa0","fa1","fa2","fa3","fa4","fa5","fa6","fa7","fs2","fs3","fs4","fs5","fs6","fs7","fs8","fs9","fs10","fs11","ft8","ft9","ft10","ft11",};
@@ -131,11 +131,14 @@ class instruction {
     uint64_t imm_I(bool SignExt=true) {if(SignExt)return ((int64_t)((int)code)>>20);else return code>>20;}
     uint64_t imm_S(bool SignExt=true) {if(SignExt)return ((int64_t)(int)((((int)code)>>20)&(int)(~0b11111)|rd()));
                                             return (code>>20)&(~0b11111)|rd();}
+    
+    //0b 1101 00000 01111 000 0000 1 1100011
+    
     uint64_t imm_SB(bool SignExt=true)
     {
         if(SignExt)
-            return (int64_t)(int)((((int)code)>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000)|((code&0b10000000)<<4)));
-        return (code>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000)|((code&0b10000000)<<4));
+            return (int64_t)(int)((((int)code)>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000))|((code&0b10000000)<<4));
+        return (code>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000))|((code&0b10000000)<<4);
     }
 
     uint64_t imm_U(bool SignExt=true) {if(SignExt)return int64_t(int(code &(~0b111111111111))); return code &(~0b111111111111);}
@@ -166,6 +169,7 @@ uint64_t & a5=x[15];
 uint64_t & a6=x[16];
 uint64_t & a7=x[17];
 
+uint64_t & s3=x[19];
 uint64_t & s10=x[26];
 
 bool RV32M (instruction instr)
@@ -218,6 +222,19 @@ int main(int argc, char ** argv)
     {
         instruction instr=mem.ReadWord(PC);
         PC_next=PC+4;
+        
+//        if(PC==0x144d8)
+//        {
+//            
+//            printf("%lx %lx",s3,a4);
+//            cin.get();
+//        }
+//        if(PC==0x14578)
+//        {
+//            
+//            printf("%lx %lx",s3,sp);
+//            cin.get();
+//        }
         if(verbose)printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
         switch(instr.opcode())
         {
@@ -299,12 +316,12 @@ int main(int argc, char ** argv)
 						break;
 						
 					case 0b001: //SH
-						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
+						if(verbose) printf("sh\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteHalfword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
 						
 					case 0b010: //SW
-						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
+						if(verbose) printf("sw\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteWord(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
 						break;
 						
@@ -446,13 +463,17 @@ int main(int argc, char ** argv)
 					
 					case 0b010: //SLTI
 						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-						if((int64_t)x[instr.rs1() < (int64_t)instr.imm_I()]) x[instr.rd()] = 1;
+						if((int64_t)x[instr.rs1()] < (int64_t)instr.imm_I()) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 						
 					case 0b011: //SLTIU
 						if(verbose) printf("sltiu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-						if(x[instr.rs1() < instr.imm_I()]) x[instr.rd()] = 1;
+						if(x[instr.rs1()] < instr.imm_I())
+                        {
+                            //cout<<"1";
+                            x[instr.rd()] = 1;
+                        }
 						else x[instr.rd()] = 0;
 						break;
 						
@@ -627,6 +648,7 @@ int main(int argc, char ** argv)
         }
         PC = PC_next;
         //printf("  \t%ld\t%ld",a0,s10);
+        //printf("\t%x",mem.ReadWord(0xfefff8a8));
         if(verbose)cout<<endl;
         //cin.get();
     }
@@ -646,7 +668,8 @@ void ecall()
             a0=write(a0,(const void*)mem.getPaddr(a1),a2);
             break;
         case 80:
-            a0=fstat(a0,(struct stat *)mem.getPaddr(a1));
+            //a0=fstat(a0,(struct stat *)mem.getPaddr(a1));
+            mem.WriteWord(a1+16,0x00002190);
             break;
         case 93:
             if(verbose)printf("\n");

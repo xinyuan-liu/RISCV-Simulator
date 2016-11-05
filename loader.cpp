@@ -9,9 +9,11 @@
 #include <unistd.h>
 using namespace std;
 
+bool verbose=true;
+
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
-
-
+const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0","fs1","fa0","fa1","fa2","fa3","fa4","fa5","fa6","fa7","fs2","fs3","fs4","fs5","fs6","fs7","fs8","fs9","fs10","fs11","ft8","ft9","ft10","ft11",};
+    
 void ecall();
 uint64_t PC, PC_next;
 char ErrorMSG[256];
@@ -32,7 +34,7 @@ struct MemoryBlock
 void Error(const char * msg)
 {
     printf("%lx:\t%s", PC, msg);
-    //exit(1);
+    exit(1);
 }
 
 class VirtualMemory
@@ -49,7 +51,7 @@ class VirtualMemory
                 return blocks[i]->Content + (Vaddr-blocks[i]->StartAddr);
             }
         }
-        printf(ErrorMSG,"Memory Error: %lx\n",Vaddr);
+        sprintf(ErrorMSG,"Memory Error: %lx\n",Vaddr);
         Error(ErrorMSG);
     }
     
@@ -113,6 +115,7 @@ class RegisterFile {
     }
 };
 
+
 class instruction {
     public :
     uint32_t code;
@@ -149,7 +152,7 @@ class instruction {
 };
 
 
-RegisterFile x;
+RegisterFile x,f;
 VirtualMemory mem;
 
 uint64_t & sp=x[2];
@@ -163,7 +166,33 @@ uint64_t & a5=x[15];
 uint64_t & a6=x[16];
 uint64_t & a7=x[17];
 
-bool verbose=false;
+uint64_t & s10=x[26];
+
+bool RV32M (instruction instr)
+{
+    if(instr.opcode()==0b0110011&&instr.func7()==0b0000001)
+    {
+        switch (instr.func3()) {
+            case 0b000://MUL
+                if(verbose) printf("mul\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+                x[instr.rd()] = x[instr.rs1()] * x[instr.rs2()];
+                return true;
+                
+            case 0b101://DIVU
+                if(verbose) printf("divu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+                x[instr.rd()] = x[instr.rs1()] / x[instr.rs2()];
+                return true;
+                
+            default: return false;
+        }
+    }
+    return false;
+}
+
+bool RV64M (instruction instr)
+{
+    return false;
+}
 
 int main(int argc, char ** argv)
 {
@@ -258,6 +287,7 @@ int main(int argc, char ** argv)
                         
                     default: Error("Invalid instruction\n");
 				}
+                
                 break;
                 
 			case 0b0100011:
@@ -288,6 +318,10 @@ int main(int argc, char ** argv)
                 break;
                 
 			case 0b0110011:
+                if(RV32M(instr))
+                    break;
+                if(RV64M(instr))
+                    break;
 				switch(instr.func3())
 				{
 					case 0b000: 
@@ -312,7 +346,7 @@ int main(int argc, char ** argv)
 					
 					case 0b010: //SLT
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
-						if((int)x[instr.rs1()] < (int)x[instr.rs2()]) x[instr.rd()] = 1;
+						if((int64_t)x[instr.rs1()] < (int64_t)x[instr.rs2()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 					
@@ -405,7 +439,8 @@ int main(int argc, char ** argv)
 				{
 					case 0b000: //ADDI
 						if(verbose) printf("addi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-						x[instr.rd()] = x[instr.rs1()] + (int64_t)instr.imm_I();
+                        
+						x[instr.rd()] = x[instr.rs1()] + instr.imm_I();
 						break;
 						
 					
@@ -541,10 +576,57 @@ int main(int argc, char ** argv)
                     default: Error("Invalid instruction\n");
 				}
 				break;
+            
+            
+                
+                
+            case 0b0100111:
+                switch (instr.func3()) {
+                    case 0b011://fsd
+                        if(verbose) printf("fsd\t%s,%s,%ld", RegName[instr.rs1()], fRegName[instr.rs2()], instr.imm_S());
+                        mem.WriteDoubleword(x[instr.rs1()] + instr.imm_S(), f[instr.rs2()]);
+                        break;
+                        
+                    default: Error("Invalid instruction\n");
+                        
+                }
+                break;
+                
+            
+            case 0b0000111:
+                switch (instr.func3()) {
+                    case 0b011://fld
+                        if(verbose) printf("fld\t%s,%s,%ld", fRegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
+                        f[instr.rd()] = mem.ReadDoubleword(instr.imm_I() + x[instr.rs1()]);
+                        break;
+                        
+                    default: Error("Invalid instruction\n");
+                        
+                }
+                break;
+            
+            case 0b1010011:
+                switch (instr.func7()) {
+                    case 0b1010001:
+                        switch (instr.func3()) {
+                            case 0b010://FEQ.D
+                                if(verbose) printf("feq.d\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
+                                x[instr.rd()] = (f[instr.rs1()] == f[instr.rs2()]);
+                                break;
+                                
+                                
+                            default: Error("Invalid instruction\n");
+                        }
+                        break;
+                        
+                    default: Error("Invalid instruction\n");
+                }
+                break;
                 
             default: Error("Invalid instruction\n");
         }
-        PC =PC_next;
+        PC = PC_next;
+        //printf("  \t%ld\t%ld",a0,s10);
         if(verbose)cout<<endl;
         //cin.get();
     }
@@ -556,6 +638,9 @@ void ecall()
     switch (a7) {
         case 57:
             a0=close(a0);
+            break;
+        case 63:
+            a0=read(a0,(void*)mem.getPaddr(a1),a2);
             break;
         case 64:
             a0=write(a0,(const void*)mem.getPaddr(a1),a2);

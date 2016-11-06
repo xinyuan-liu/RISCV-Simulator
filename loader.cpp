@@ -695,7 +695,7 @@ int main(int argc, char ** argv)
                 switch (instr.fmt()) {
                     case 0b01://FMADD.D
                         if(verbose) printf("fmadd.d\t%s,%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()], fRegName[instr.rs3()]);
-                        f[instr.rd()] = Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d + Reg(f[instr.rs3()]).d;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d + Reg(f[instr.rs3()]).d).l;
                         break;
                         
                     default: Error("Invalid instruction\n");

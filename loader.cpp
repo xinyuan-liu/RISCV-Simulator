@@ -31,6 +31,8 @@ struct MemoryBlock
     }
 };
 
+
+
 void Error(const char * msg)
 {
     printf("%lx:\t%s", PC, msg);
@@ -129,7 +131,7 @@ class instruction {
     uint32_t func7() {return (code & 0b11111110000000000000000000000000)>>25;}
     uint32_t shamt() {return rs2();}
     uint64_t imm_I(bool SignExt=true) {if(SignExt)return ((int64_t)((int)code)>>20);else return code>>20;}
-    uint64_t imm_S(bool SignExt=true) {if(SignExt)return ((int64_t)(int)((((int)code)>>20)&(int)(~0b11111)|rd()));
+    uint64_t imm_S(bool SignExt=true) {if(SignExt)return ((int64_t)(int)((((int)code)>>20)&(~0b11111)|rd()));
                                             return (code>>20)&(~0b11111)|rd();}
     
     //0b 1101 00000 01111 000 0000 1 1100011
@@ -185,6 +187,11 @@ bool RV32M (instruction instr)
             case 0b101://DIVU
                 if(verbose) printf("divu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = x[instr.rs1()] / x[instr.rs2()];
+                return true;
+                
+            case 0b111://REMU
+                if(verbose) printf("remu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+                x[instr.rd()] = x[instr.rs1()] % x[instr.rs2()];
                 return true;
                 
             default: return false;
@@ -357,23 +364,27 @@ int main(int argc, char ** argv)
 						}
                         break;
 					case 0b001: //SLL
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] << x[instr.rs2()];
 						break;
 					
 					case 0b010: //SLT
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						if((int64_t)x[instr.rs1()] < (int64_t)x[instr.rs2()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 					
 					case 0b011: //SLTU
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						if(x[instr.rs1()] < x[instr.rs2()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
 						break;
 						
 					case 0b100: //XOR
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("xor\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] ^ x[instr.rs2()];
 						break;
@@ -396,11 +407,13 @@ int main(int argc, char ** argv)
                         break;
 						
 					case 0b110: //OR
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("or\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] | x[instr.rs2()];
 						break;
 					
 					case 0b111: //AND
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("and\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] & x[instr.rs2()];
 						break;
@@ -410,6 +423,7 @@ int main(int argc, char ** argv)
                 break;
 			
 			case 0b1110011: //SCALL
+                if(instr.code!=instr.opcode())Error("Invalid instruction\n");
                 if(verbose)printf("ecall");
                 ecall();
                 break;
@@ -483,6 +497,7 @@ int main(int argc, char ** argv)
 						break;
                     
                     case 0b001: //SLLI
+                        if(instr.func6()!=0b000000)Error("Invalid instruction\n");
                         if(verbose) printf("slli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
                         x[instr.rd()] = x[instr.rs1()] << instr.shamt6();
                         break;
@@ -522,11 +537,13 @@ int main(int argc, char ** argv)
 				switch(instr.func3())
 				{
 					case 0b000: //ADDIW
+                        
 						if(verbose) printf("addiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
 						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)instr.imm_I());
 						break;
 						
 					case 0b001: //SLLIW
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("slliw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] << instr.shamt());
 						break;
@@ -573,6 +590,7 @@ int main(int argc, char ** argv)
 						break;
 					
 					case 0b001: //SLLW
+                        if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sllw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] << (int)x[instr.rs2()]);
 						break;
@@ -648,11 +666,34 @@ int main(int argc, char ** argv)
         }
         PC = PC_next;
         //printf("  \t%ld\t%ld",a0,s10);
-        //printf("\t%x",mem.ReadWord(0xfefff8a8));
+        //if(verbose)printf("\t%x %lx,%lx",mem.ReadWord(0xfefff8a8),a0,a1);
+        //printf("\t%c%c %lx %c%c %lx %lx %lx",mem.ReadByte(0x1b430),mem.ReadByte(0x1b431),a1,mem.ReadByte(0xfefff9de),mem.ReadByte(0xfefff9df),a3,a4,a5);
         if(verbose)cout<<endl;
         //cin.get();
     }
 }
+
+
+struct	stat_riscv
+{
+    uint64_t	a;
+    uint64_t	b;
+    uint32_t	c;
+    uint32_t	d;
+    uint32_t	e;
+    uint32_t	f;
+    uint64_t	g;
+    uint64_t	h;
+    uint64_t    i;
+    long        st_spare1;
+    uint64_t    j;
+    long		st_spare2;
+    uint64_t	k;
+    long		st_spare3;
+    long		st_blksize;
+    long		st_blocks;
+    long        st_spare4[2];
+};
 
 
 void ecall()
@@ -665,12 +706,29 @@ void ecall()
             a0=read(a0,(void*)mem.getPaddr(a1),a2);
             break;
         case 64:
+            
+            
             a0=write(a0,(const void*)mem.getPaddr(a1),a2);
             break;
         case 80:
-            //a0=fstat(a0,(struct stat *)mem.getPaddr(a1));
-            mem.WriteWord(a1+16,0x00002190);
+        {
+            struct stat tmp;
+            a0=fstat(a0,&tmp);
+            struct stat_riscv* ptr=(struct stat_riscv *)mem.getPaddr(a1);
+            ptr->a=tmp.st_dev;
+            ptr->b=tmp.st_ino;
+            ptr->c=tmp.st_mode;
+            ptr->d=tmp.st_nlink;
+            ptr->e=tmp.st_uid;
+            ptr->f=tmp.st_gid;
+            ptr->g=tmp.st_rdev;
+            ptr->h=tmp.st_size;
+            ptr->i=tmp.st_atime;
+            ptr->j=tmp.st_mtime;
+            ptr->k=tmp.st_ctime;
+        }
             break;
+            
         case 93:
             if(verbose)printf("\n");
             exit(0);

@@ -7,9 +7,10 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/time.h>
 using namespace std;
 
-bool verbose=false;
+bool verbose=true;
 
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
 const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0","fs1","fa0","fa1","fa2","fa3","fa4","fa5","fa6","fa7","fs2","fs3","fs4","fs5","fs6","fs7","fs8","fs9","fs10","fs11","ft8","ft9","ft10","ft11",};
@@ -737,6 +738,9 @@ void ecall()
         case 93:
             if(verbose)printf("\n");
             exit(0);
+            break;
+        case 169:
+            a0=gettimeofday((struct timeval*)mem.getPaddr(a0),NULL);
             break;
         case 214:
             //printf(" %lx" , mem.ReadDoubleword(gp-1960) );

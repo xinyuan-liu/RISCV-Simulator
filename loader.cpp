@@ -139,8 +139,8 @@ class instruction {
     uint64_t imm_SB(bool SignExt=true)
     {
         if(SignExt)
-            return (int64_t)(int)((((int)code)>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000))|((code&0b10000000)<<4));
-        return (code>>20)&(~0b11111)|(rd()&(~1))&(~(0b100000000000))|((code&0b10000000)<<4);
+            return (int64_t)(int)((( (int)code>>20) &(~0b11111)|(rd()&(~1))) &(~ (0b100000000000))) | ((code&0b10000000)<<4);
+        return ((( code>>20) &(~0b11111)|(rd()&(~1))) &(~ (0b100000000000))) | ((code&0b10000000)<<4);
     }
 
     uint64_t imm_U(bool SignExt=true) {if(SignExt)return int64_t(int(code &(~0b111111111111))); return code &(~0b111111111111);}
@@ -668,6 +668,7 @@ int main(int argc, char ** argv)
         //printf("  \t%ld\t%ld",a0,s10);
         //if(verbose)printf("\t%x %lx,%lx",mem.ReadWord(0xfefff8a8),a0,a1);
         //printf("\t%c%c %lx %c%c %lx %lx %lx",mem.ReadByte(0x1b430),mem.ReadByte(0x1b431),a1,mem.ReadByte(0xfefff9de),mem.ReadByte(0xfefff9df),a3,a4,a5);
+        //printf("\t%c%c%c%c ",mem.ReadByte(0x1b430),mem.ReadByte(0x1b431),mem.ReadByte(0x1b432),mem.ReadByte(0x1b433));
         if(verbose)cout<<endl;
         //cin.get();
     }
@@ -702,6 +703,10 @@ void ecall()
         case 57:
             a0=close(a0);
             break;
+        case 62:
+            a0=lseek(a0,a1,a2);
+            break;
+            
         case 63:
             a0=read(a0,(void*)mem.getPaddr(a1),a2);
             break;

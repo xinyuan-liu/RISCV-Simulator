@@ -146,6 +146,8 @@ class instruction {
     uint32_t func3() {return (code & 0b111000000000000)>>12;}
     uint32_t rs1() {return (code & 0b11111000000000000000)>>15;}
     uint32_t rs2() {return (code & 0b1111100000000000000000000)>>20;}
+    uint32_t rs3() {return (code >> 27);}
+    uint32_t fmt() {return ( (code >> 25)&0b11 );}
     uint32_t func7() {return (code & 0b11111110000000000000000000000000)>>25;}
     uint32_t shamt() {return rs2();}
     uint64_t imm_I(bool SignExt=true) {if(SignExt)return ((int64_t)((int)code)>>20);else return code>>20;}
@@ -670,6 +672,7 @@ int main(int argc, char ** argv)
                 }
                 break;
                 
+                
             
             case 0b0000111:
                 switch (instr.func3()) {
@@ -688,33 +691,50 @@ int main(int argc, char ** argv)
                 }
                 break;
             
+            case 0b1000011:
+                switch (instr.fmt()) {
+                    case 0b01://FMADD.D
+                        if(verbose) printf("fmadd.d\t%s,%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()], fRegName[instr.rs3()]);
+                        f[instr.rd()] = Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d + Reg(f[instr.rs3()]).d;
+                        break;
+                        
+                    default: Error("Invalid instruction\n");
+                        
+                }
+                break;
+                
             case 0b1010011:
                 switch (instr.func7()) {
                     case 0b0001001://FMUL.D
                         if(verbose) printf("fmul.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
-                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d * Reg(f[instr.rs1()]).d).l;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d).l;
                         break;
                         
                     case 0b0001000://FMUL.F
                         if(verbose) printf("fmul.f\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
-                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f * Reg(f[instr.rs1()]).f).l;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f * Reg(f[instr.rs2()]).f).l;
                         break;
                         
                     case 0b0001101://FDIV.D
                         if(verbose) printf("fdiv.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
-                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d / Reg(f[instr.rs1()]).d).l;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d / Reg(f[instr.rs2()]).d).l;
                         break;
                         
                     case 0b0001100://FDIV.S
                         if(verbose) printf("fdiv.s\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
-                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f / Reg(f[instr.rs1()]).f).l;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f / Reg(f[instr.rs2()]).f).l;
                         break;
                         
                     case 0b0000101://FSUB.D
                         if(verbose) printf("fsub.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
-                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d - Reg(f[instr.rs1()]).d).l;
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d - Reg(f[instr.rs2()]).d).l;
                         break;
                     
+                    case 0b0000001://FADD.D
+                        if(verbose) printf("fadd.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
+                        f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d + Reg(f[instr.rs2()]).d).l;
+                        break;
+                        
                     case 0b1110001://FMV.X.D
                         if(instr.rs2()!=0||instr.func3()!=0)Error("Invalid instruction\n");
                         if(verbose) printf("fmv.x.d\t%s,%s", RegName[instr.rd()], fRegName[instr.rs1()]);
@@ -739,8 +759,25 @@ int main(int argc, char ** argv)
                         }
                         break;
                         
+                    case 0b1010000:
+                        switch (instr.func3()) {
+                            case 0b001://FLT.S
+                                if(verbose) printf("flt.s\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
+                                x[instr.rd()] = Reg(f[instr.rs1()]).f < Reg(f[instr.rs2()]).f;
+                                break;
+                                
+                                
+                            default: Error("Invalid instruction\n");
+                        }
+                        break;
+                        
                     case 0b1010001:
                         switch (instr.func3()) {
+                            case 0b001://FLT.D
+                                if(verbose) printf("flt.d\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
+                                x[instr.rd()] = Reg(f[instr.rs1()]).d < Reg(f[instr.rs2()]).d;
+                                break;
+                                
                             case 0b010://FEQ.D
                                 if(verbose) printf("feq.d\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                                 x[instr.rd()] = (f[instr.rs1()] == f[instr.rs2()]);
@@ -750,6 +787,7 @@ int main(int argc, char ** argv)
                             default: Error("Invalid instruction\n");
                         }
                         break;
+                        
                     case 0b1101000:
                         switch (instr.rs2()) {
                             case 0b00010://FCVT.S.L
@@ -766,9 +804,20 @@ int main(int argc, char ** argv)
                         }
                         break;
                     
+                    case 0b01100001:
+                        switch (instr.rs2()) {
+                            case 0b00000://FCVT.W.D
+                                if(verbose) printf("fcvt.w.d\t%s,%s", RegName[instr.rd()], fRegName[instr.rs1()]);
+                                x[instr.rd()] = int64_t(int32_t(Reg(f[instr.rs1()]).d));
+                                break;
+                                
+                            default: Error("Invalid instruction\n");
+                        }
+                        break;
+                        
                     case 0b01101001:
                         switch (instr.rs2()) {
-                            case 0b00000://CVT.D.W
+                            case 0b00000://FCVT.D.W
                                 if(verbose) printf("fcvt.d.w\t%s,%s", fRegName[instr.rd()], RegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(double(uint64_t(int64_t(int32_t(x[instr.rs1()]))))).l;
                                 break;

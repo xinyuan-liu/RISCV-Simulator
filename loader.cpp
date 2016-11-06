@@ -235,6 +235,11 @@ bool RV64M (instruction instr)
                 x[instr.rd()] = int64_t(int32_t(x[instr.rs1()]) / int32_t(x[instr.rs2()]));
                 return true;
                 
+            case 0b101:
+                if(verbose) printf("divw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+                x[instr.rd()] = int64_t(int32_t(uint32_t(x[instr.rs1()]) / uint32_t(x[instr.rs2()])));
+                return true;
+                
             default: return false;
         }
     }

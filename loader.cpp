@@ -66,6 +66,7 @@ class VirtualMemory
     
     uint8_t ReadByte(uint64_t Vaddr)
     {
+        
         return *(uint8_t *)getPaddr(Vaddr);
     }
     
@@ -153,9 +154,6 @@ class instruction {
     uint64_t imm_I(bool SignExt=true) {if(SignExt)return ((int64_t)((int)code)>>20);else return code>>20;}
     uint64_t imm_S(bool SignExt=true) {if(SignExt)return ((int64_t)(int)((((int)code)>>20)&(~0b11111)|rd()));
                                             return (code>>20)&(~0b11111)|rd();}
-    
-    //0b 1101 00000 01111 000 0000 1 1100011
-    
     uint64_t imm_SB(bool SignExt=true)
     {
         if(SignExt)
@@ -254,7 +252,6 @@ int main(int argc, char ** argv)
     fin.read((char *)(&Elfhdr), sizeof(Elf64_Ehdr));
     Elf64_Phdr Prohdr;
     fin.read((char *)(&Prohdr), sizeof(Elf64_Phdr));
-    //cout<<hex<<Prohdr.p_offset<<endl<<Prohdr.p_vaddr<<endl<<Prohdr.p_memsz<<endl;
     uint64_t segsize=0x2000000+Prohdr.p_memsz;
     char * Content=new char [segsize];
     memset(Content, 0, segsize);
@@ -270,19 +267,6 @@ int main(int argc, char ** argv)
     {
         instruction instr=mem.ReadWord(PC);
         PC_next=PC+4;
-        
-//        if(PC==0x144d8)
-//        {
-//            
-//            printf("%lx %lx",s3,a4);
-//            cin.get();
-//        }
-//        if(PC==0x14578)
-//        {
-//            
-//            printf("%lx %lx",s3,sp);
-//            cin.get();
-//        }
         if(verbose)printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
         switch(instr.opcode())
         {
@@ -859,12 +843,7 @@ int main(int argc, char ** argv)
             default: Error("Invalid instruction\n");
         }
         PC = PC_next;
-        //printf("  \t%ld\t%ld",a0,s10);
-        //if(verbose)printf("\t%x %lx,%lx",mem.ReadWord(0xfefff8a8),a0,a1);
-        //printf("\t%c%c %lx %c%c %lx %lx %lx",mem.ReadByte(0x1b430),mem.ReadByte(0x1b431),a1,mem.ReadByte(0xfefff9de),mem.ReadByte(0xfefff9df),a3,a4,a5);
-        //printf("\t%c%c%c%c ",mem.ReadByte(0x1b430),mem.ReadByte(0x1b431),mem.ReadByte(0x1b432),mem.ReadByte(0x1b433));
         if(verbose)cout<<endl;
-        //cin.get();
     }
 }
 
@@ -900,13 +879,10 @@ void ecall()
         case 62:
             a0=lseek(a0,a1,a2);
             break;
-            
         case 63:
             a0=read(a0,(void*)mem.getPaddr(a1),a2);
             break;
         case 64:
-            
-            
             a0=write(a0,(const void*)mem.getPaddr(a1),a2);
             break;
         case 80:

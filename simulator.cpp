@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <map>
 #include <string>
+#include <algorithm>
 using namespace std;
 
 bool verbose=false;
@@ -960,12 +961,27 @@ struct	stat_riscv
     long        st_spare4[2];
 };
 
-
+vector< map<string,int>::iterator >v;
+bool cmp(map<string,int>::iterator a,map<string,int>::iterator b)
+{
+    return a->second > b->second;
+}
+void printresult()
+{
+    map<string,int>::iterator it;
+    for(it=instr_counter.begin();it!=instr_counter.end();it++)
+    {
+        v.push_back(it);
+        sort(v.begin(),v.end(),cmp);
+        for(int i=0;i<20;i++)
+            cout<<it->first<<" "<<it->second<<endl;
+    }
+}
 void ecall()
 {
     switch (a7) {
         case 57:
-            a0=close(a0);
+            //a0=close(a0);
             break;
         case 62:
             a0=lseek(a0,a1,a2);
@@ -997,6 +1013,7 @@ void ecall()
             
         case 93:
             if(verbose)printf("\n");
+            printresult();
             exit(0);
             break;
         case 169:

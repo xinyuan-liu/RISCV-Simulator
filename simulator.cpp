@@ -8,14 +8,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <map>
+#include <string>
 using namespace std;
 
-#ifdef DEBUG
-#define verbose true
-#else
-#define verbose false
-#endif
-//const bool verbose=false;
+bool verbose=false;
 
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
 const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0","fs1","fa0","fa1","fa2","fa3","fa4","fa5","fa6","fa7","fs2","fs3","fs4","fs5","fs6","fs7","fs8","fs9","fs10","fs11","ft8","ft9","ft10","ft11",};
@@ -23,6 +20,7 @@ const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0
 void ecall();
 uint64_t PC, PC_next;
 char ErrorMSG[256];
+map<string, int> instr_counter;
 
 struct MemoryBlock 
 {
@@ -38,12 +36,13 @@ struct MemoryBlock
 };
 
 
-
 void Error(const char * msg)
 {
     printf("%lx:\t%s", PC, msg);
     exit(1);
 }
+
+
 
 class VirtualMemory
 {
@@ -113,19 +112,14 @@ class VirtualMemory
 
 class RegisterFile {
     uint64_t reg[32];
-    bool zeroflag;
     public:
     uint64_t & operator [] (int i)
     {
-        if(i==0&&zeroflag)
+        if(i==0)
         {
             reg[0]=0;
         }
         return reg[i];
-    }
-    RegisterFile(bool flag)
-    {
-        zeroflag=flag;
     }
 };
 union Reg{
@@ -185,7 +179,7 @@ class instruction {
 };
 
 
-RegisterFile x(true),f(false);
+RegisterFile x,f;
 VirtualMemory mem;
 
 uint64_t & sp=x[2];
@@ -210,16 +204,19 @@ bool RV32M (instruction instr)
             case 0b000://MUL
                 if(verbose) printf("mul\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = x[instr.rs1()] * x[instr.rs2()];
+                counter("mul");
                 return true;
                 
             case 0b101://DIVU
                 if(verbose) printf("divu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = x[instr.rs1()] / x[instr.rs2()];
+                counter("divu");
                 return true;
                 
             case 0b111://REMU
                 if(verbose) printf("remu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = x[instr.rs1()] % x[instr.rs2()];
+                counter("remu");
                 return true;
                 
             default: return false;
@@ -233,25 +230,37 @@ bool RV64M (instruction instr)
     if(instr.opcode()==0b0111011 && instr.func7()==0b0000001)
     {
         switch (instr.func3()) {
-            case 0b000:
+            case 0b000: //MULW
                 if(verbose) printf("mulw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = int64_t(int32_t(x[instr.rs1()]) * int32_t(x[instr.rs2()]));
+                counter("mulw");
                 return true;
         
-            case 0b100:
+            case 0b100: //DIVW
                 if(verbose) printf("divw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = int64_t(int32_t(x[instr.rs1()]) / int32_t(x[instr.rs2()]));
-                return true;
+                counter("divw");
+				return true;
                 
-            case 0b101:
-                if(verbose) printf("divw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
+            case 0b101: //DIVWU
+                if(verbose) printf("divwu\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
                 x[instr.rd()] = int64_t(int32_t(uint32_t(x[instr.rs1()]) / uint32_t(x[instr.rs2()])));
-                return true;
+                counter("divwu");
+				return true;
                 
             default: return false;
         }
     }
     return false;
+}
+
+void counter(string str)
+{
+	map<string, int>::iterator it = instr_counter.find(str);
+	if(it != instr_counter.end())
+   		++instr_counter[str];
+   	else
+   		instr_counter[str] = 1;
 }
 
 int main(int argc, char ** argv)
@@ -277,24 +286,27 @@ int main(int argc, char ** argv)
     {
         instruction instr=mem.ReadWord(PC);
         PC_next=PC+4;
-        if(verbose) printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
+        if(verbose)printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
         switch(instr.opcode())
         {
             
             case 0b0010111: //AUIPC
                 if(verbose) printf("auipc\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                 x[instr.rd()] = instr.imm_U() + PC;
+        		counter("auipc");
                 break;
 			
 			case 0b0110111: //LUI
 			    if(verbose) printf("lui\t%s,0x%lx", RegName[instr.rd()], instr.imm_U(true));
                     x[instr.rd()] = instr.imm_U();
+                counter("lui");
 				break;
                 
             case 0b1101111: //JAL
                 if(verbose) printf("jal\t%s,0x%lx", RegName[instr.rd()], instr.imm_UJ(true));
                 x[instr.rd()] = PC + 4;
                 PC_next=instr.imm_UJ()+PC;
+                counter("jal");
                 break;
                 
             case 0b1100111: //JALR
@@ -305,6 +317,7 @@ int main(int argc, char ** argv)
                     PC_next=instr.imm_I()+x[instr.rs1()];
                 }
                 else Error("Invalid instruction\n");
+                counter("jalr");
                 break;
 			case 0b0000011: 
 				switch(instr.func3())
@@ -312,36 +325,43 @@ int main(int argc, char ** argv)
 					case 0b000: //LB
 						if(verbose) printf("lb\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = int64_t(int8_t(mem.ReadByte(instr.imm_I() + x[instr.rs1()])));
+						counter("lb");
 						break;
 						
 					case 0b001: //LH
 						if(verbose) printf("lh\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = int64_t(int16_t(mem.ReadHalfword(instr.imm_I() + x[instr.rs1()])));
+						counter("lh");
 						break;
 						
 					case 0b010: //LW
 						if(verbose) printf("lw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
                         x[instr.rd()] = int64_t(int32_t(mem.ReadWord(instr.imm_I() + x[instr.rs1()])));
+						counter("lw");
 						break;
 					
 					case 0b011: //LD
 						if(verbose) printf("ld\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = mem.ReadDoubleword(instr.imm_I() + x[instr.rs1()]);
+						counter("ld");
 						break;
 					
 					case 0b100: //LBU
 						if(verbose) printf("lbu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = uint64_t(uint8_t(mem.ReadByte(instr.imm_I() + x[instr.rs1()])));
+						counter("lbu");
 						break;
 							
 					case 0b101: //LHU
 						if(verbose) printf("lhu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = uint64_t(uint16_t(mem.ReadHalfword(instr.imm_I() + x[instr.rs1()])));
+						counter("lhu");
 						break;	
 					
 					case 0b110: //LWU
 						if(verbose) printf("lwu\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(true));
 						x[instr.rd()] = uint64_t(uint32_t(mem.ReadWord(instr.imm_I() + x[instr.rs1()])));
+						counter("lwu");
 						break;
                         
                     default: Error("Invalid instruction\n");
@@ -355,21 +375,25 @@ int main(int argc, char ** argv)
 					case 0b000: //SB
 						if(verbose) printf("sb\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteByte(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
+						counter("sb");
 						break;
 						
 					case 0b001: //SH
 						if(verbose) printf("sh\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteHalfword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
+						counter("sh");
 						break;
 						
 					case 0b010: //SW
 						if(verbose) printf("sw\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteWord(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
+						counter("sw");
 						break;
 						
 					case 0b011: //SD
 						if(verbose) printf("sd\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_S());
 						mem.WriteDoubleword(x[instr.rs1()] + instr.imm_S(), x[instr.rs2()]);
+						counter("sd");
 						break;
                     
                     default: Error("Invalid instruction\n");
@@ -387,11 +411,13 @@ int main(int argc, char ** argv)
 							case 0b0000000: //ADD
 								if(verbose) printf("add\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = x[instr.rs1()] + x[instr.rs2()];
+								counter("add");
 								break;
 								
 							case 0b0100000: //SUB
 								if(verbose) printf("sub\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = x[instr.rs1()] - x[instr.rs2()];
+								counter("sub");
 								break;
                             default: Error("Invalid instruction\n");
 						}
@@ -400,6 +426,7 @@ int main(int argc, char ** argv)
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] << x[instr.rs2()];
+						counter("sll");
 						break;
 					
 					case 0b010: //SLT
@@ -407,6 +434,7 @@ int main(int argc, char ** argv)
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						if((int64_t)x[instr.rs1()] < (int64_t)x[instr.rs2()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
+						counter("slt");
 						break;
 					
 					case 0b011: //SLTU
@@ -414,12 +442,14 @@ int main(int argc, char ** argv)
 						if(verbose) printf("sll\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						if(x[instr.rs1()] < x[instr.rs2()]) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
+						counter("sltu");
 						break;
 						
 					case 0b100: //XOR
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("xor\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] ^ x[instr.rs2()];
+						counter("xor");
 						break;
 						
 					case 0b101:
@@ -428,11 +458,13 @@ int main(int argc, char ** argv)
 							case 0b0000000: //SRL
 								if(verbose) printf("srl\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = x[instr.rs1()] >> x[instr.rs2()];
+								counter("srl");
 								break;
 								
 							case 0b0100000: //SRA
 								if(verbose) printf("sra\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)x[instr.rs1()] >> x[instr.rs2()];
+								counter("sra");
 								break;
                                 
                             default: Error("Invalid instruction\n");
@@ -443,12 +475,14 @@ int main(int argc, char ** argv)
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("or\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] | x[instr.rs2()];
+						counter("or");
 						break;
 					
 					case 0b111: //AND
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("and\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = x[instr.rs1()] & x[instr.rs2()];
+						counter("and");
 						break;
                     
                     default: Error("Invalid instruction\n");
@@ -459,7 +493,8 @@ int main(int argc, char ** argv)
                 if(instr.code!=instr.opcode())Error("Invalid instruction\n");
                 if(verbose)printf("ecall");
                 ecall();
-                break;
+                counter("scall");
+				break;
 				
 			case 0b1100011:
 				switch(instr.func3())
@@ -467,31 +502,37 @@ int main(int argc, char ** argv)
 					case 0b000: //BEQ
 						if(verbose) printf("beq\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if(x[instr.rs1()] == x[instr.rs2()]) PC_next = PC + instr.imm_SB();
+						counter("beq");
 						break;
 						
 					case 0b001: //BNE
 						if(verbose) printf("bne\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if(x[instr.rs1()] != x[instr.rs2()]) PC_next = PC + instr.imm_SB();
+						counter("bne");
 						break;
 						
 					case 0b100: //BLT
 						if(verbose) printf("blt\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if((int64_t)x[instr.rs1()] < (int64_t)x[instr.rs2()]) PC_next= PC + instr.imm_SB();
+						counter("blt");
 						break;
 						
 					case 0b101: //BGE
 						if(verbose) printf("bge\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if((int64_t)x[instr.rs1()] >= (int64_t)x[instr.rs2()]) PC_next = PC + instr.imm_SB();
+						counter("bge");
 						break;
 						
 					case 0b110: //BLTU
 						if(verbose) printf("bltu\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if(x[instr.rs1()] < x[instr.rs2()]) PC_next = PC + instr.imm_SB();
+						counter("bltu");
 						break;
 						
 					case 0b111: //BGEU
 						if(verbose) printf("bgeu\t%s,%s,%ld", RegName[instr.rs1()], RegName[instr.rs2()], (int64_t)instr.imm_SB());
 						if(x[instr.rs1()] >= x[instr.rs2()]) PC_next = PC + instr.imm_SB();
+						counter("bgeu");
 						break;
                         
                     default: Error("Invalid instruction\n");
@@ -503,8 +544,8 @@ int main(int argc, char ** argv)
 				{
 					case 0b000: //ADDI
 						if(verbose) printf("addi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
-                        
 						x[instr.rd()] = x[instr.rs1()] + instr.imm_I();
+						counter("addi");
 						break;
 						
 					
@@ -512,6 +553,7 @@ int main(int argc, char ** argv)
 						if(verbose) printf("slti\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I());
 						if((int64_t)x[instr.rs1()] < (int64_t)instr.imm_I()) x[instr.rd()] = 1;
 						else x[instr.rd()] = 0;
+						counter("slti");
 						break;
 						
 					case 0b011: //SLTIU
@@ -522,18 +564,21 @@ int main(int argc, char ** argv)
                             x[instr.rd()] = 1;
                         }
 						else x[instr.rd()] = 0;
+						counter("sltiu");
 						break;
 						
 					case 0b100: //XORI
 						if(verbose) printf("xori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
 						x[instr.rd()] = x[instr.rs1()] ^ instr.imm_I(false);
+						counter("xori");
 						break;
                     
                     case 0b001: //SLLI
                         if(instr.func6()!=0b000000)Error("Invalid instruction\n");
                         if(verbose) printf("slli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
                         x[instr.rd()] = x[instr.rs1()] << instr.shamt6();
-                        break;
+                        counter("slli");
+						break;
                         
 					case 0b101:
 						switch(instr.func6())
@@ -541,11 +586,13 @@ int main(int argc, char ** argv)
 							case 0b000000: //SRLI
 								if(verbose) printf("srli\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
 								x[instr.rd()] = x[instr.rs1()] >> instr.shamt6();
+								counter("srli");
 								break;
 								
 							case 0b010000: //SRAI
 								if(verbose) printf("srai\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt6());
 								x[instr.rd()] = (int64_t)x[instr.rs1()] >> instr.shamt6();
+								counter("srai");
 								break;
                                 
                             default: Error("Invalid instruction\n");
@@ -555,11 +602,13 @@ int main(int argc, char ** argv)
 					case 0b110: //ORI
 						if(verbose) printf("ori\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
 						x[instr.rd()] = x[instr.rs1()] | instr.imm_I(false);
+						counter("ori");
 						break;
 						
 					case 0b111: //ANDI
 						if(verbose) printf("andi\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], (int64_t)instr.imm_I(false));
 						x[instr.rd()] = x[instr.rs1()] & instr.imm_I(false);
+						counter("andi");
 						break;
                         
                     default: Error("Invalid instruction\n");
@@ -573,12 +622,14 @@ int main(int argc, char ** argv)
                         
 						if(verbose) printf("addiw\t%s,%s,%ld", RegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
 						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)instr.imm_I());
+						counter("addiw");
 						break;
 						
 					case 0b001: //SLLIW
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("slliw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 						x[instr.rd()] = (int64_t)((int)x[instr.rs1()] << instr.shamt());
+						counter("slliw");
 						break;
 						
 					case 0b101: //SRLIW
@@ -587,11 +638,13 @@ int main(int argc, char ** argv)
 							case 0b0000000: //SRLIW
 								if(verbose) printf("srliw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] >> instr.shamt());
+								counter("srliw");
 								break;
 								
 							case 0b0100000: //SRAIW
 								if(verbose) printf("sraiw\t%s,%s,%d", RegName[instr.rd()], RegName[instr.rs1()], instr.shamt());
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> instr.shamt());
+								counter("sraiw");
 								break;
                                 
                             default: Error("Invalid instruction\n");
@@ -613,11 +666,13 @@ int main(int argc, char ** argv)
 							case 0b0000000: //ADDW
 								if(verbose) printf("addw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] + (int)x[instr.rs2()]);
+								counter("addw");
 								break;
 								
 							case 0b0100000: //SUBW
 								if(verbose) printf("subw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] - (int)x[instr.rs2()]);
+								counter("subw");
 								break;
                                 
                             default: Error("Invalid instruction\n");
@@ -628,6 +683,7 @@ int main(int argc, char ** argv)
                         if(instr.func7()!=0b0000000)Error("Invalid instruction\n");
 						if(verbose) printf("sllw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 						x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] << (int)x[instr.rs2()]);
+						counter("sllw");
 						break;
 						
 					case 0b101:
@@ -636,11 +692,13 @@ int main(int argc, char ** argv)
 							case 0b0000000: //SRLW
 								if(verbose) printf("srlw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)(int)((unsigned int)x[instr.rs1()] >> (int)x[instr.rs2()]);
+								counter("srlw");
 								break;
 								
 							case 0b0100000: //SRAW
 								if(verbose) printf("sraw\t%s,%s,%s", RegName[instr.rd()], RegName[instr.rs1()], RegName[instr.rs2()]);
 								x[instr.rd()] = (int64_t)((int)x[instr.rs1()] >> (int)x[instr.rs2()]);
+								counter("sraw");
 								break;
                                 
                             default: Error("Invalid instruction\n");
@@ -659,12 +717,14 @@ int main(int argc, char ** argv)
                     case 0b011://fsd
                         if(verbose) printf("fsd\t%s,%s,%ld", RegName[instr.rs1()], fRegName[instr.rs2()], instr.imm_S());
                         mem.WriteDoubleword(x[instr.rs1()] + instr.imm_S(), f[instr.rs2()]);
-                        break;
+                        counter("fsd");
+						break;
                         
                     case 0b010://fsw
                         if(verbose) printf("fsd\t%s,%s,%ld", RegName[instr.rs1()], fRegName[instr.rs2()], instr.imm_S());
                         mem.WriteWord(x[instr.rs1()] + instr.imm_S(), f[instr.rs2()]);
-                        break;
+                        counter("fsw");
+						break;
                         
                     default: Error("Invalid instruction\n");
                         
@@ -678,12 +738,14 @@ int main(int argc, char ** argv)
                     case 0b011://fld
                         if(verbose) printf("fld\t%s,%s,%ld", fRegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
                         f[instr.rd()] = mem.ReadDoubleword(instr.imm_I() + x[instr.rs1()]);
-                        break;
+                        counter("fld");
+						break;
                        
                     case 0b010://flw
                         if(verbose) printf("flw\t%s,%s,%ld", fRegName[instr.rd()], RegName[instr.rs1()], instr.imm_I());
                         f[instr.rd()] = mem.ReadWord(instr.imm_I() + x[instr.rs1()]);
-                        break;
+                        counter("flw");
+						break;
 
                     default: Error("Invalid instruction\n");
                         
@@ -695,7 +757,8 @@ int main(int argc, char ** argv)
                     case 0b01://FMADD.D
                         if(verbose) printf("fmadd.d\t%s,%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()], fRegName[instr.rs3()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d + Reg(f[instr.rs3()]).d).l;
-                        break;
+                        counter("fmadd.d");
+						break;
                         
                     default: Error("Invalid instruction\n");
                         
@@ -707,51 +770,60 @@ int main(int argc, char ** argv)
                     case 0b0001001://FMUL.D
                         if(verbose) printf("fmul.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d * Reg(f[instr.rs2()]).d).l;
-                        break;
+                        counter("fmul.d");
+						break;
                         
                     case 0b0001000://FMUL.F
                         if(verbose) printf("fmul.f\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f * Reg(f[instr.rs2()]).f).l;
-                        break;
+                        counter("fmul.f");
+						break;
                         
                     case 0b0001101://FDIV.D
                         if(verbose) printf("fdiv.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d / Reg(f[instr.rs2()]).d).l;
-                        break;
+                        counter("fdiv.d");
+						break;
                         
                     case 0b0001100://FDIV.S
                         if(verbose) printf("fdiv.s\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).f / Reg(f[instr.rs2()]).f).l;
-                        break;
+                        counter("fdiv.s");
+						break;
                         
                     case 0b0000101://FSUB.D
                         if(verbose) printf("fsub.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d - Reg(f[instr.rs2()]).d).l;
-                        break;
+                        counter("fsub.d");
+						break;
                     
                     case 0b0000001://FADD.D
                         if(verbose) printf("fadd.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                         f[instr.rd()] = Reg (Reg(f[instr.rs1()]).d + Reg(f[instr.rs2()]).d).l;
-                        break;
+                        counter("fadd.d");
+						break;
                         
                     case 0b1110001://FMV.X.D
                         if(instr.rs2()!=0||instr.func3()!=0)Error("Invalid instruction\n");
                         if(verbose) printf("fmv.x.d\t%s,%s", RegName[instr.rd()], fRegName[instr.rs1()]);
                         x[instr.rd()] = f[instr.rs1()];
-                        break;
+                        counter("fmv.x.d");
+						break;
                         
                     case 0b1111001://FMV.D.X
                         if(instr.rs2()!=0||instr.func3()!=0)Error("Invalid instruction\n");
                         if(verbose) printf("fmv.d.x\t%s,%s", fRegName[instr.rd()], RegName[instr.rs1()]);
                         f[instr.rd()] = x[instr.rs1()];
-                        break;
+                        counter("fmv.d.x");
+						break;
                         
                     case 0b0010001:
                         switch (instr.func3()) {
                             case 0b0000://FSGNJ.D
                                 if(verbose) printf("fsgnj.d\t%s,%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                                 f[instr.rd()] = (f[instr.rs1()]&(~((uint64_t)1<<63)) ) | (f[instr.rs2()]& ((uint64_t)1<<63) );
-                                break;
+                                counter("fsgnj.d");
+								break;
                                 
                                 
                             default: Error("Invalid instruction\n");
@@ -763,7 +835,8 @@ int main(int argc, char ** argv)
                             case 0b001://FLT.S
                                 if(verbose) printf("flt.s\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                                 x[instr.rd()] = Reg(f[instr.rs1()]).f < Reg(f[instr.rs2()]).f;
-                                break;
+                                counter("flt.s");
+								break;
                                 
                                 
                             default: Error("Invalid instruction\n");
@@ -775,12 +848,14 @@ int main(int argc, char ** argv)
                             case 0b001://FLT.D
                                 if(verbose) printf("flt.d\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                                 x[instr.rd()] = Reg(f[instr.rs1()]).d < Reg(f[instr.rs2()]).d;
-                                break;
+                                counter("flt.d");
+								break;
                                 
                             case 0b010://FEQ.D
                                 if(verbose) printf("feq.d\t%s,%s,%s", RegName[instr.rd()], fRegName[instr.rs1()], fRegName[instr.rs2()]);
                                 x[instr.rd()] = (f[instr.rs1()] == f[instr.rs2()]);
-                                break;
+                                counter("feq.d");
+								break;
                                 
                                 
                             default: Error("Invalid instruction\n");
@@ -792,12 +867,14 @@ int main(int argc, char ** argv)
                             case 0b00010://FCVT.S.L
                                 if(verbose) printf("fcvt.s.l\t%s,%s", fRegName[instr.rd()], RegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(float(uint64_t(int64_t(x[instr.rs1()])))).l;
-                                break;
+                                counter("fcvt.s.l");
+								break;
                                 
                             case 0b00000://FCVT.S.W
                                 if(verbose) printf("fcvt.s.w\t%s,%s", fRegName[instr.rd()], RegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(float(uint64_t(int64_t(int32_t(x[instr.rs1()]))))).l;
-                                break;
+                                counter("fcvt.s.w");
+								break;
                                 
                             default: Error("Invalid instruction\n");
                         }
@@ -808,7 +885,8 @@ int main(int argc, char ** argv)
                             case 0b00000://FCVT.W.D
                                 if(verbose) printf("fcvt.w.d\t%s,%s", RegName[instr.rd()], fRegName[instr.rs1()]);
                                 x[instr.rd()] = int64_t(int32_t(Reg(f[instr.rs1()]).d));
-                                break;
+                                counter("fcvt.w.d");
+								break;
                                 
                             default: Error("Invalid instruction\n");
                         }
@@ -819,7 +897,8 @@ int main(int argc, char ** argv)
                             case 0b00000://FCVT.D.W
                                 if(verbose) printf("fcvt.d.w\t%s,%s", fRegName[instr.rd()], RegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(double(uint64_t(int64_t(int32_t(x[instr.rs1()]))))).l;
-                                break;
+                                counter("fcvt.d.w");
+								break;
                                 
                             default: Error("Invalid instruction\n");
                         }
@@ -830,7 +909,8 @@ int main(int argc, char ** argv)
                             case 0b00001://FCVT.S.D
                                 if(verbose) printf("fcvt.s.d\t%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(float(Reg(f[instr.rs1()]).d)).l;
-                                break;
+                                counter("fcvt.s.d");
+								break;
                                 
                             default: Error("Invalid instruction\n");
                         }
@@ -841,7 +921,8 @@ int main(int argc, char ** argv)
                             case 0b00000://FCVT.D.S
                                 if(verbose) printf("fcvt.d.s\t%s,%s", fRegName[instr.rd()], fRegName[instr.rs1()]);
                                 f[instr.rd()] = Reg(double(Reg(f[instr.rs1()]).f)).l;
-                                break;
+                                counter("fcvt.d.s");
+								break;
                                 
                             default: Error("Invalid instruction\n");
                         }

@@ -10,7 +10,6 @@
 #include <sys/time.h>
 #include <map>
 #include <string>
-#include <algorithm>
 using namespace std;
 
 bool verbose=false;
@@ -197,6 +196,15 @@ uint64_t & a7=x[17];
 uint64_t & s3=x[19];
 uint64_t & s10=x[26];
 
+void counter(string str)
+{
+	map<string, int>::iterator it = instr_counter.find(str);
+	if(it != instr_counter.end())
+   		++instr_counter[str];
+   	else
+   		instr_counter[str] = 1;
+}
+
 bool RV32M (instruction instr)
 {
     if(instr.opcode()==0b0110011&&instr.func7()==0b0000001)
@@ -253,15 +261,6 @@ bool RV64M (instruction instr)
         }
     }
     return false;
-}
-
-void counter(string str)
-{
-	map<string, int>::iterator it = instr_counter.find(str);
-	if(it != instr_counter.end())
-   		++instr_counter[str];
-   	else
-   		instr_counter[str] = 1;
 }
 
 int main(int argc, char ** argv)
@@ -961,27 +960,12 @@ struct	stat_riscv
     long        st_spare4[2];
 };
 
-vector< map<string,int>::iterator >v;
-bool cmp(map<string,int>::iterator a,map<string,int>::iterator b)
-{
-    return a->second > b->second;
-}
-void printresult()
-{
-    map<string,int>::iterator it;
-    for(it=instr_counter.begin();it!=instr_counter.end();it++)
-    {
-        v.push_back(it);
-        sort(v.begin(),v.end(),cmp);
-        for(int i=0;i<20;i++)
-            cout<<it->first<<" "<<it->second<<endl;
-    }
-}
+
 void ecall()
 {
     switch (a7) {
         case 57:
-            //a0=close(a0);
+            a0=close(a0);
             break;
         case 62:
             a0=lseek(a0,a1,a2);
@@ -1013,7 +997,6 @@ void ecall()
             
         case 93:
             if(verbose)printf("\n");
-            printresult();
             exit(0);
             break;
         case 169:

@@ -14,7 +14,7 @@
 using namespace std;
 
 bool verbose=false;
-
+int totalcnt=0;
 const char * RegName [32]={"zero","ra","sp","gp","tp","t0","t1","t2","s0","s1","a0","a1","a2","a3","a4","a5","a6","a7","s2","s3","s4","s5","s6","s7","s8","s9","s10","s11","t3","t4","t5","t6"};
 const char * fRegName [32]={"ft0","ft1","ft2","ft3","ft4","ft5","ft6","ft7","fs0","fs1","fa0","fa1","fa2","fa3","fa4","fa5","fa6","fa7","fs2","fs3","fs4","fs5","fs6","fs7","fs8","fs9","fs10","fs11","ft8","ft9","ft10","ft11",};
     
@@ -285,6 +285,7 @@ int main(int argc, char ** argv)
     
     while(true)
     {
+        totalcnt++;
         instruction instr=mem.ReadWord(PC);
         PC_next=PC+4;
         if(verbose)printf("%x:\t%08x\t\t", (uint32_t)PC, instr.code);
@@ -968,13 +969,17 @@ bool cmp(map<string,int>::iterator a,map<string,int>::iterator b)
 }
 void printresult()
 {
+    cout<<"TOTAL:"<<" "<<totalcnt<<endl;
     map<string,int>::iterator it;
     for(it=instr_counter.begin();it!=instr_counter.end();it++)
     {
         v.push_back(it);
-        sort(v.begin(),v.end(),cmp);
-        for(int i=0;i<20;i++)
-            cout<<it->first<<" "<<it->second<<endl;
+    }
+    sort(v.begin(),v.end(),cmp);
+    for(int i=0;i<20;i++)
+    {
+        it=v[i];
+        cout<<it->first<<" "<<it->second<<endl;
     }
 }
 void ecall()
